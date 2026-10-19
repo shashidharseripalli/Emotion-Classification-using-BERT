@@ -135,19 +135,30 @@ From the `backend` directory:
 
 ```bash
 docker build -t emotion-lens-api .
-docker run --rm -p 8000:8000 -e EMOTION_MODEL_ID=bhadresh-savani/bert-base-uncased-emotion emotion-lens-api
+docker run --rm -p 8000:7860 -e EMOTION_MODEL_ID=bhadresh-savani/bert-base-uncased-emotion emotion-lens-api
 ```
 
-### Hosting checklist
+### Hugging Face Spaces (recommended for a demo)
 
-You can deploy the Docker image to a container host such as Hugging Face Spaces (Docker), Render, Railway, or another service that supports Python containers.
+The backend is prepared for Spaces' Docker runtime on port `7860`. You must create the Space under your own Hugging Face account; I cannot create or publish it without access to that account.
 
-1. Deploy the `backend` directory / Dockerfile.
+1. Open [Hugging Face Spaces](https://huggingface.co/new-space) and sign in.
+2. Choose a Space name, select **Docker** as the Space SDK, and create the Space. Public is easiest for a public demo; remember that the endpoint will then be callable by others.
+3. In the Space's **Files** view, upload the *contents* of this repository's `backend/` folder to the root of the Space. The root must contain `Dockerfile`, `README.md`, `main.py`, and `requirements.txt`. Do not upload the parent folder as a nested directory.
+4. In Space **Settings → Variables and secrets**, add the variable `EMOTION_MODEL_ID` with value `bhadresh-savani/bert-base-uncased-emotion`. This is a variable, not a secret; do not add access tokens to the extension.
+5. Wait for the Docker build and model download to finish. Open `https://YOUR-SPACE-NAME.hf.space/health`; continue only when the JSON reports `"model_loaded": true`.
+6. Open the extension popup → **API settings**. Enter `https://YOUR-SPACE-NAME.hf.space`, save it, and approve Chrome's host permission prompt.
+7. Test a sample from the popup and verify the predicted label and score list.
+
+The root-level metadata in `backend/README.md` configures Spaces for Docker and port `7860`. If you prefer a private Space, confirm its authentication behavior before using it from the extension; a public extension should not contain a Hugging Face token.
+
+### Other Docker hosts
+
+1. Deploy the `backend` directory / Dockerfile to a container host.
 2. Configure `EMOTION_MODEL_ID` in the host's environment variables.
-3. Wait for the model to download and verify `https://YOUR_API_HOST/health`.
+3. Verify `https://YOUR_API_HOST/health` reports `"model_loaded": true`.
 4. In the extension popup, open **API settings** and save your HTTPS API base URL.
-5. The extension requests Chrome permission for that API host when you save it. Keep `https://*/*` as an optional permission rather than granting broad access automatically.
-6. For public release, configure rate limits, request size limits, logs that avoid storing user text, and an appropriate privacy notice. Never embed a secret API key in extension code.
+5. For public release, configure rate limits, request size limits, logs that avoid storing user text, and an appropriate privacy notice. Never embed a secret API key in extension code.
 
 The backend's current CORS regex accepts Chrome extension IDs. Review CORS settings and access controls before public production deployment. Some hosts sleep when idle and may be slow on the first request while loading the model.
 
