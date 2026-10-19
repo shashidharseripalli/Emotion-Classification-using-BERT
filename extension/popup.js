@@ -22,7 +22,7 @@ async function checkBackend() {
   try {
     const base = await getApiUrl();
     apiInput.value = base;
-    const response = await fetch(base + "/health", { method: "GET" });
+    const response = await fetch(base + "/health");
     if (!response.ok) throw new Error("Backend returned " + response.status);
     const data = await response.json();
     apiState.textContent = data.model_loaded ? "Backend connected · model ready" : "Backend connected · model loading";
@@ -109,7 +109,7 @@ document.getElementById("use-selection").addEventListener("click", async () => {
     input.value = result.result.slice(0, 5000);
     charCount.textContent = input.value.length + " / 5000";
     setStatus("Selected webpage text loaded. Click Analyze emotion.");
-  } catch (error) {
+  } catch {
     setStatus("Chrome cannot read a selection on this page. Try a normal website.", true);
   }
 });
@@ -117,16 +117,26 @@ document.getElementById("use-selection").addEventListener("click", async () => {
 document.getElementById("settings").addEventListener("click", () => {
   document.getElementById("settings-panel").classList.toggle("hidden");
 });
+
 document.getElementById("save-url").addEventListener("click", async () => {
   const value = apiInput.value.trim().replace(/\/$/, "");
   try {
     const url = new URL(value);
-    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error();
+    const originPattern = url.origin + "/*";
+    const hasPermission = await chrome.permissions.contains({ origins: [originPattern] });
+    if (!hasPermission) {
+      const granted = await chrome.permissions.request({ origins: [originPattern] });
+      if (!granted) {
+        setStatus("Chrome permission was not granted for this API host.", true);
+        return;
+      }
+    }
     await chrome.storage.local.set({ apiUrl: value });
     setStatus("API URL saved.");
     await checkBackend();
   } catch {
-    setStatus("Enter a valid http:// or https:// URL.", true);
+    setStatus("Enter a valid API URL and allow Chrome's host permission when prompted.", true);
   }
 });
 
