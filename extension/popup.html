@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Emotion Lens</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="mark" aria-hidden="true">E</div>
+      <div>
+        <h1>Emotion Lens</h1>
+        <p class="subtitle">BERT-powered text analysis</p>
+      </div>
+    </header>
+
+    <label for="text-input">Text to analyze</label>
+    <textarea id="text-input" rows="6" maxlength="5000" placeholder="Type or paste a sentence…"></textarea>
+    <div class="meta"><span id="char-count">0 / 5000</span><button id="use-selection" class="text-button" type="button">Use selected webpage text</button></div>
+
+    <button id="analyze" class="primary" type="button">Analyze emotion</button>
+    <p id="status" class="status" role="status" aria-live="polite">Connect to your local API to get started.</p>
+
+    <section id="result" class="result hidden" aria-live="polite">
+      <div class="result-top">
+        <div>
+          <p class="eyebrow">PREDICTED EMOTION</p>
+          <h2 id="emotion">—</h2>
+        </div>
+        <div class="confidence"><strong id="confidence">—</strong><span>confidence</span></div>
+      </div>
+      <div id="scores" class="scores"></div>
+      <p class="disclaimer">This is a model prediction, not a reliable assessment of a person's mental state. Sarcasm and context may affect results.</p>
+    </section>
+
+    <footer>
+      <span class="dot"></span><span id="api-state">Checking backend…</span>
+      <button id="settings" class="text-button" type="button">API settings</button>
+    </footer>
+    <div id="settings-panel" class="settings hidden">
+      <label for="api-url">Backend URL</label>
+      <input id="api-url" type="url" value="http://127.0.0.1:8000">
+      <button id="save-url" class="secondary" type="button">Save URL</button>
+    </div>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
