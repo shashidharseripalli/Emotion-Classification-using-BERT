@@ -1,0 +1,31 @@
+name: Validate extension and backend
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate extension manifest JSON
+        run: python -c "import json; json.load(open('extension/manifest.json', encoding='utf-8'))"
+      - name: Check JavaScript syntax
+        run: |
+          node --check extension/popup.js
+          node --check extension/background.js
+      - name: Compile Python source
+        run: python -m py_compile backend/main.py
+      - name: Check required project files
+        run: |
+          test -f extension/popup.html
+          test -f extension/popup.css
+          test -f backend/requirements.txt
+          test -f backend/Dockerfile
