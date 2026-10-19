@@ -29,3 +29,5 @@ jobs:
           test -f extension/popup.css
           test -f backend/requirements.txt
           test -f backend/Dockerfile
+      - name: Build backend Docker image
+        run: docker build --tag emotion-lens-api:ci ./backend
