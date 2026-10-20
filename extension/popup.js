@@ -22,13 +22,14 @@ async function checkBackend() {
   try {
     const base = await getApiUrl();
     apiInput.value = base;
-    const response = await fetch(base + "/health");
-    if (!response.ok) throw new Error("Backend returned " + response.status);
-    const data = await response.json();
-    apiState.textContent = data.model_loaded ? "Backend connected · model ready" : "Backend connected · model loading";
+    // Gradio serves its app configuration at /config.
+    const response = await fetch(base + "/config");
+    if (!response.ok) throw new Error("Space returned " + response.status);
+    await response.json();
+    apiState.textContent = "Gradio Space reachable";
     apiDot.classList.toggle("online", true);
   } catch {
-    apiState.textContent = "Backend offline — start FastAPI";
+    apiState.textContent = "Space offline — check API URL";
     apiDot.classList.remove("online");
   }
 }
@@ -58,6 +59,54 @@ function renderResult(data) {
   resultNode.classList.remove("hidden");
 }
 
+async function predictWithGradio(base, text) {
+  const startResponse = await fetch(base + "/gradio_api/call/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: [text] })
+  });
+  const startPayload = await startResponse.json().catch(() => ({}));
+  if (!startResponse.ok) {
+    throw new Error(startPayload.detail || startPayload.error || "Gradio request failed (" + startResponse.status + ")");
+  }
+  if (!startPayload.event_id) {
+    throw new Error("Gradio did not return an event ID. Check the Space API documentation.");
+  }
+
+  const resultResponse = await fetch(
+    base + "/gradio_api/call/predict/" + encodeURIComponent(startPayload.event_id)
+  );
+  if (!resultResponse.ok) {
+    throw new Error("Could not retrieve prediction (" + resultResponse.status + ")");
+  }
+
+  // Gradio returns the result as a server-sent event stream.
+  const streamText = await resultResponse.text();
+  const dataLines = [...streamText.matchAll(/^data:\s*(.+)$/gm)].map((match) => match[1]);
+  let result = null;
+  for (const line of dataLines) {
+    try {
+      result = JSON.parse(line);
+    } catch {
+      // Ignore non-JSON heartbeat/event data.
+    }
+  }
+  if (!Array.isArray(result) || result.length < 3) {
+    throw new Error("Unexpected Gradio response. Open the Space's Use via API section to verify the endpoint.");
+  }
+
+  const [emotion, confidence, rawScores] = result;
+  const scoreEntries = Array.isArray(rawScores)
+    ? rawScores.map((item) => ({ label: item.label, score: Number(item.score) }))
+    : Object.entries(rawScores || {}).map(([label, score]) => ({ label, score: Number(score) }));
+
+  return {
+    predicted_emotion: String(emotion),
+    confidence: Number(confidence),
+    scores: scoreEntries
+  };
+}
+
 async function analyze(text = input.value) {
   const cleaned = text.trim();
   if (!cleaned) {
@@ -73,17 +122,11 @@ async function analyze(text = input.value) {
   setStatus("Analyzing text…");
   try {
     const base = await getApiUrl();
-    const response = await fetch(base + "/predict", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: cleaned })
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.detail || "Request failed (" + response.status + ")");
+    const payload = await predictWithGradio(base, cleaned);
     renderResult(payload);
     setStatus("Analysis complete.");
   } catch (error) {
-    setStatus("Could not analyze text. " + error.message + " Check that the backend is running and the API URL is correct.", true);
+    setStatus("Could not analyze text. " + error.message + " Check the Space URL and API endpoint.", true);
   } finally {
     analyzeButton.disabled = false;
   }
